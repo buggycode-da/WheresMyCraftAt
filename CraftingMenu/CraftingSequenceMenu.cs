@@ -1259,7 +1259,9 @@ public static class CraftingSequenceMenu
 
         ImGui.Separator();
 
-        if (ImGuiHelpers.SearchCombobox("Load file", ref _loadFilesFilter, ref _selectedFileName, LoadFilesCache.Value, ImGuiHelpers.WhitespaceSeparatedContains))
+        // Plain ImGui combo instead of ExileCore's ImGuiHelpers.SearchCombobox, which hard-crashes
+        // the loader when its popup opens after the Hexa.NET.ImGui 3.x (Dear ImGui 1.92) update.
+        if (DrawLoadFileCombo("##LoadFile", ref _loadFilesFilter, ref _selectedFileName, LoadFilesCache.Value))
         {
             _fileSaveName = _selectedFileName;
             LoadFile(_selectedFileName);
@@ -1300,6 +1302,44 @@ public static class CraftingSequenceMenu
         }
 
         ImGui.Unindent();
+    }
+
+    private static bool DrawLoadFileCombo(string id, ref string filter, ref string selected, IReadOnlyCollection<string> items)
+    {
+        var changed = false;
+        var preview = string.IsNullOrEmpty(selected) ? "Select a file..." : selected;
+
+        if (!ImGui.BeginCombo(id, preview, ImGuiComboFlags.HeightLarge))
+            return false;
+
+        if (ImGui.IsWindowAppearing())
+            ImGui.SetKeyboardFocusHere();
+
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("##LoadFileFilter", "Search...", ref filter, 256);
+
+        var index = 0;
+        foreach (var item in items ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(filter) && !ImGuiHelpers.WhitespaceSeparatedContains(item, filter))
+                continue;
+
+            var isSelected = item == selected;
+
+            ImGui.PushID(index++);
+            if (ImGui.Selectable(item, isSelected))
+            {
+                selected = item;
+                changed = true;
+            }
+
+            if (isSelected)
+                ImGui.SetItemDefaultFocus();
+            ImGui.PopID();
+        }
+
+        ImGui.EndCombo();
+        return changed;
     }
 
     public static bool ShowButtonPopup(string popupId, List<string> items, out int selectedIndex)
